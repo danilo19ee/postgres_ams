@@ -1,0 +1,24 @@
+[Unit]
+Description=PostgreSQL database server
+After=network.target
+
+[Service]
+Type=forking
+
+User=postgres
+Group=postgres
+
+Environment=PGPORT=5432
+
+Environment=PGDATA=/dados/data
+
+OOMScoreAdjust=-1000
+
+ExecStart=/usr/local/pgsql-14/bin/pg_ctl start -D ${PGDATA} -s -o "-p ${PGPORT}" -w -t 300
+ExecStop=/usr/local/pgsql-14/bin/pg_ctl stop -D ${PGDATA} -s -m fast
+ExecReload=/usr/local/pgsql-14/bin/pg_ctl reload -D ${PGDATA} -s
+
+TimeoutSec=300
+
+[Install]
+WantedBy=multi-user.target
