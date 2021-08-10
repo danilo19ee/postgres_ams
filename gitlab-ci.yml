@@ -1,6 +1,5 @@
 stages:
   - execute-install-postgres-master
-  - import-datebase-dump
   - update-pg-hba
 
 "Instalação do Postgres":
@@ -48,30 +47,18 @@ stages:
   tags:
   - postgres_ams
 
-"Import .SQL":
-  stage: import-datebase-dump
-  script:
-   - echo --------------------------------------------------------------------
-   - echo IMPORTANDO .SQL PARA O POSTGRES INSTALADO
-   - echo --------------------------------------------------------------------
-  when: manual
-  only:
-    - master
-  tags:
-  - postgres_ams
-
 "Atualizar PG_HBA":
   stage: update-pg-hba
   variables:
     host: host
-    database: all
+    database: demo
     user: postgres
-    ip: 10.5.150.76/32
+    ip: 192.168.18.101/32
     type: trust
   script:
    - echo --------------------------------------------------------------------
    - echo Update PG_HBA
-   - sed  $host    $database $user  $ip  $type   ./access/pg_hba.sql
+   - sed $host $database $user $ip $type ./access/pg_hba.sql
    - /usr/local/pgsql-14/bin/psql -U postgres -f ./access/pg_hba.sql
    - echo --------------------------------------------------------------------
   when: manual
