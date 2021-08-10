@@ -1,0 +1,82 @@
+stages:
+  - execute-install-postgres-master
+  - import-datebase-dump
+  - update-pg-hba
+
+"Instalação do Postgres":
+  stage: execute-install-postgres-master
+  script:
+   - echo --------------------------------------------------------------------
+   - pwd
+   - sudo cp -vf ./repository/oracle-linux-ol7.repo /etc/yum.repos.d/oracle-linux-ol7.repo
+   - sudo chmod 777 /etc/yum.repos.d/oracle-linux-ol7.repo
+   - sudo yum repolist
+   - sudo yum install openssl-devel libtermcap-devel readline-devel gcc bison flex perl libconfig-devel kernel-devel rsync -y
+   - sudo yum install zlib jzlib zlib-devel -y
+   - sudo yum install wget -y
+   - sudo mkdir -p /usr/local/pgsql-14
+   - wget https://ftp.postgresql.org/pub/source/v14beta1/postgresql-14beta1.tar.gz -O /home/gitlab-runner/postgresql-14.tar.gz
+   - mkdir -p /home/gitlab-runner/postgresql-14
+   - tar xvzf /home/gitlab-runner/postgresql-14.tar.gz -C /home/gitlab-runner/postgresql-14
+   - cd /home/gitlab-runner/postgresql-14/postgresql-14beta1/ && ./configure --prefix=/usr/local/pgsql-14 --with-openssl && cd -
+   - pwd
+   - sudo make -C /home/gitlab-runner/postgresql-14/postgresql-14beta1/
+   - sudo make install -C /home/gitlab-runner/postgresql-14/postgresql-14beta1/
+   - sudo make -C /home/gitlab-runner/postgresql-14/postgresql-14beta1/contrib
+   - sudo make install -C /home/gitlab-runner/postgresql-14/postgresql-14beta1/contrib
+   - rm -Rvf /home/gitlab-runner/postgresql-14
+   - rm -vf /home/gitlab-runner/postgresql-14.tar.gz
+   - sudo mkdir -p /dados/data
+   - sudo adduser postgres
+   - sudo chown postgres:postgres -R /dados/data
+   - sudo su - postgres -c "/usr/local/pgsql-14/bin/initdb --locale=pt_BR.UTF-8 -D /dados/data/"
+   - sudo sed -e "/listen_addresses/s/'.*'/'*'/" /dados/data/postgresql.conf > /dados/data/postgresql.conf-new; mv -vf /dados/data/postgresql.conf-new /dados/data/postgresql.conf; chown postgres:postgres /dados/data/postgresql.conf
+   - sudo sed -e "s/#port/port/" /dados/data/postgresql.conf > /dados/data/postgresql.conf-new; mv -vf /dados/data/postgresql.conf-new /dados/data/postgresql.conf; chown postgres:postgres /dados/data/postgresql.conf
+   - sudo sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config && setenforce 0
+   - sudo firewall-cmd --zone=public --add-port=5432/tcp --permanent
+   - sudo firewall-cmd --reload
+   - sudo cp -vf ./service/postgresql.service /usr/lib/systemd/system/postgresql.service
+   - sudo chmod 777 /usr/lib/systemd/system/postgresql.service
+   - sudo systemctl daemon-reload
+   - sudo systemctl enable postgresql.service
+   - sudo systemctl start postgresql.service
+   - sudo systemctl status -l postgresql.service
+   - echo --------------------------------------------------------------------
+  when: manual
+  only:
+    - master
+  tags:
+  - postgres_ams
+
+"Import .SQL":
+  stage: import-datebase-dump
+  script:
+   - echo --------------------------------------------------------------------
+   - echo IMPORTANDO .SQL PARA O POSTGRES INSTALADO
+   - echo --------------------------------------------------------------------
+  when: manual
+  only:
+    - master
+  tags:
+  - postgres_ams
+
+"Atualizar PG_HBA":
+  stage: update-pg-hba
+  variables:
+    host: host
+    database: all
+    user: postgres
+    ip: 10.5.150.76/32
+    type: trust
+  script:
+   - echo --------------------------------------------------------------------
+   - echo Update PG_HBA
+   - sed  $host    $database $user  $ip  $type   ./access/pg_hba.sql
+   - /usr/local/pgsql-14/bin/psql -U postgres -f ./access/pg_hba.sql
+   - echo --------------------------------------------------------------------
+  when: manual
+  only:
+    - master
+  tags:
+  - postgres_ams
+
